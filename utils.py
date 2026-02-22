@@ -119,17 +119,21 @@ def move_old_shapekeys_to_bottom(obj):
     key_blocks = obj.data.shape_keys.key_blocks
     moved = 0
 
-    # Find all shapekeys with .old suffix
-    old_indices = [i for i, kb in enumerate(key_blocks) if kb.name.endswith('.old')]
+    old_names = [kb.name for kb in key_blocks if kb.name.endswith('.old') and kb.name != key_blocks[0].name]
 
-    # Move from bottom to top to avoid index shifting issues
-    for idx in reversed(old_indices):
-        if idx == 0:
-            continue  # Skip Basis shapekey
-        obj.active_shape_key_index = idx
-        target_index = len(key_blocks) - 1
-        while obj.active_shape_key_index < target_index:
+    for name in old_names:
+        kb = key_blocks.get(name)
+        if not kb:
+            continue
+        
+        obj.active_shape_key_index = list(key_blocks).index(kb)
+        last_idx = len(key_blocks) - 1
+        
+        while obj.active_shape_key_index < last_idx:
+            prev_idx = obj.active_shape_key_index
             bpy.ops.object.shape_key_move(type='DOWN')
+            if obj.active_shape_key_index == prev_idx:
+                break
         moved += 1
 
     return moved
@@ -153,14 +157,12 @@ def delete_old_shapekeys(obj):
     key_blocks = obj.data.shape_keys.key_blocks
     deleted = 0
 
-    # Find all shapekeys with .old suffix
     old_names = [kb.name for kb in key_blocks if kb.name.endswith('.old')]
 
-    # Delete in reverse to avoid index shifting issues
     for name in reversed(old_names):
-        if name in key_blocks:
-            obj.active_shape_key_index = list(key_blocks).index(key_blocks[name])
-            bpy.ops.object.shape_key_remove()
+        kb = key_blocks.get(name)
+        if kb:
+            obj.shape_key_remove(kb)
             deleted += 1
 
     return deleted

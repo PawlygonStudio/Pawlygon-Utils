@@ -3,7 +3,7 @@ bl_info = {
     "name": "Pawlygon Utils",
     "description": "Shapekey manipulation tools",
     "author": "Pawlygon",
-    "version": (1, 0, 0),
+    "version": (1, 0, 2),
     "blender": (5, 0, 0),
     "location": "View3D > Sidebar > Pawlygon Utils",
     "category": "Object",
