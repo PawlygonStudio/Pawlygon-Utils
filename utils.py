@@ -61,8 +61,22 @@ def split_shapekey_by_groups(obj, group_a_name, group_b_name):
 
     # Reset shapekey state (clear vertex group assignment)
     bpy.ops.object.shape_key_clear()
-    obj.active_shape_key_index = obj.data.shape_keys.key_blocks.keys().index(original_name)
+    current_index = obj.data.shape_keys.key_blocks.keys().index(original_name)
+    obj.active_shape_key_index = current_index
     shape_key.vertex_group = ''
+    
+    # Move original shapekey back to its original position if it shifted
+    if current_index != original_index:
+        if current_index < original_index:
+            steps = original_index - current_index
+            for _ in range(steps):
+                bpy.ops.object.shape_key_move(type='DOWN')
+        else:
+            steps = current_index - original_index
+            for _ in range(steps):
+                bpy.ops.object.shape_key_move(type='UP')
+    
+    obj.active_shape_key_index = original_index
 
     return (created_names[0], created_names[1])
 

@@ -29,6 +29,13 @@ def get_list_items(self, context):
     ]
 
 
+def on_target_changed(self, context):
+    """Clear missing shapekey list when target object is cleared."""
+    if self.pawlygon_target_object is None:
+        self.pawlygon_missing_list.clear()
+        self.pawlygon_missing_count = 0
+
+
 def register():
     # Register property group class first
     global _classes
@@ -40,7 +47,8 @@ def register():
     bpy.types.Scene.pawlygon_target_object = PointerProperty(
         type=bpy.types.Object,
         name="Target Object",
-        description="Object to check for missing shapekeys"
+        description="Object to check for missing shapekeys",
+        update=on_target_changed
     )
 
     bpy.types.Scene.pawlygon_list_name = EnumProperty(

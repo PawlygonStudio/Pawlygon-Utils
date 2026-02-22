@@ -169,7 +169,8 @@ class PU_OT_create_missing(Operator):
         created = 0
         for item in missing_list:
             if item.name not in target.data.shape_keys.key_blocks:
-                target.shape_key_add(name=item.name, from_mix=False)
+                sk = target.shape_key_add(name=item.name, from_mix=False)
+                sk.value = 0.0
                 created += 1
 
         # Clear the missing list after creating

@@ -136,12 +136,12 @@ class PU_PT_cleanup_panel(Panel):
         obj = context.active_object
 
         # Validate current state for button enabling
-        is_valid = (
+        is_valid = bool(
             obj
             and obj.type == 'MESH'
             and obj.data.shape_keys
         )
-        is_correct_mode = obj and obj.mode in {'OBJECT', 'SCULPT'}
+        is_correct_mode = bool(obj and obj.mode in {'OBJECT', 'SCULPT'})
 
         # Show status information to user
         if not is_correct_mode:
