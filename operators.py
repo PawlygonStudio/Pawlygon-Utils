@@ -81,6 +81,8 @@ class PU_OT_split_shapekey(Operator):
     group_a: StringProperty()
     group_b: StringProperty()
 
+    _allowed_modes = {'OBJECT', 'SCULPT'}
+
     @classmethod
     def poll(cls, context):
         # Requires active shapekey to split (not just any shapekey)
@@ -90,11 +92,16 @@ class PU_OT_split_shapekey(Operator):
             and obj.type == 'MESH'
             and obj.data.shape_keys
             and obj.active_shape_key
-            and obj.mode in {'OBJECT', 'SCULPT'}
         )
 
     def execute(self, context):
         obj = context.active_object
+
+        if obj.mode not in self._allowed_modes:
+            mode_name = obj.mode.replace('_', ' ').title()
+            self.report({'WARNING'}, f"Split Shapekey is not available in {mode_name} mode. Switch to Object or Sculpt mode.")
+            return {'CANCELLED'}
+
         result = utils.split_shapekey_by_groups(obj, self.group_a, self.group_b)
 
         if result:
