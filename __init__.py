@@ -3,26 +3,30 @@ bl_info = {
     "name": "Pawlygon Utils",
     "description": "Shapekey manipulation tools",
     "author": "Pawlygon",
-    "version": (1, 0, 2),
+    "version": (1, 0, 3),
     "blender": (5, 0, 0),
     "location": "View3D > Sidebar > Pawlygon Utils",
     "category": "Object",
 }
 
 import bpy
-from . import constants, operators, panels, properties, utils
+from . import constants, keymaps, operators, panels, preferences, properties, utils
 
 
 def register():
-    # Register in dependency order: properties -> operators -> panels
+    # Register in dependency order: properties -> operators -> panels -> prefs -> keymaps
     # Properties must be registered first as operators/panels depend on them
     properties.register()
     operators.register()
     panels.register()
+    preferences.register()
+    keymaps.register()
 
 
 def unregister():
     # Unregister in reverse order to properly clean up dependencies
+    keymaps.unregister()
+    preferences.unregister()
     panels.unregister()
     operators.unregister()
     properties.unregister()
