@@ -3,7 +3,7 @@ import bpy
 from . import constants
 
 
-# Keep references to addon keymap items for clean unregister
+# Keep (km, kmi) pairs for clean unregister — conventional Blender addon pattern
 _addon_keymaps = []
 
 
@@ -41,34 +41,6 @@ def _remove_existing_split_items(keyconfig):
                 km.keymap_items.remove(kmi)
 
 
-def _find_user_split_binding(window_manager, group_a, group_b):
-    user_kc = window_manager.keyconfigs.user if window_manager and window_manager.keyconfigs else None
-    if not user_kc:
-        return None
-
-    for km in user_kc.keymaps:
-        for kmi in km.keymap_items:
-            if not _is_matching_split_item(kmi, group_a, group_b):
-                continue
-            if kmi.type == 'NONE':
-                continue
-            return kmi
-
-    return None
-
-
-def _copy_event_settings(src_kmi, dst_kmi):
-    dst_kmi.map_type = src_kmi.map_type
-    dst_kmi.type = src_kmi.type
-    dst_kmi.value = src_kmi.value
-    dst_kmi.shift = src_kmi.shift
-    dst_kmi.ctrl = src_kmi.ctrl
-    dst_kmi.alt = src_kmi.alt
-    dst_kmi.oskey = src_kmi.oskey
-    dst_kmi.any = src_kmi.any
-    dst_kmi.key_modifier = src_kmi.key_modifier
-
-
 def register():
     wm = bpy.context.window_manager
     if not wm or not wm.keyconfigs or not wm.keyconfigs.addon:
@@ -77,46 +49,29 @@ def register():
     _addon_keymaps.clear()
 
     kc = wm.keyconfigs.addon
+    # Remove any leftover items from a previous registration before adding new ones
     _remove_existing_split_items(kc)
 
     for km_name, space_type, region_type in _KEYMAP_TARGETS:
         km = kc.keymaps.new(name=km_name, space_type=space_type, region_type=region_type)
 
         for group_a, group_b in constants.VERTEX_GROUP_PAIRS:
-            existing = None
-            for kmi in km.keymap_items:
-                if _is_matching_split_item(kmi, group_a, group_b):
-                    existing = kmi
-                    break
+            # Register with no key binding ('NONE'). Blender persists user
+            # customisations as diffs against this addon baseline in userpref.blend,
+            # so the user's chosen key is automatically re-applied on every
+            # register — including after addon updates — as long as the idname
+            # and properties match.
+            kmi = km.keymap_items.new("pawlygon.split_shapekey", 'NONE', 'PRESS')
+            kmi.properties.group_a = group_a
+            kmi.properties.group_b = group_b
 
-            if existing is None:
-                kmi = km.keymap_items.new("pawlygon.split_shapekey", 'NONE', 'PRESS')
-                kmi.properties.group_a = group_a
-                kmi.properties.group_b = group_b
-
-                user_binding = _find_user_split_binding(wm, group_a, group_b)
-                if user_binding:
-                    _copy_event_settings(user_binding, kmi)
-
-            _addon_keymaps.append((km_name, space_type, region_type, group_a, group_b))
+            # Store (km, kmi) pairs — the conventional Blender pattern for clean unregister
+            _addon_keymaps.append((km, kmi))
 
 
 def unregister():
-    wm = bpy.context.window_manager
-    if not wm or not wm.keyconfigs or not wm.keyconfigs.addon:
-        _addon_keymaps.clear()
-        return
-
-    kc = wm.keyconfigs.addon
-    for km_name, space_type, region_type, group_a, group_b in _addon_keymaps:
-        km = _find_keymap(kc, km_name, space_type, region_type)
-        if not km:
-            continue
-
-        for kmi in list(km.keymap_items):
-            if _is_matching_split_item(kmi, group_a, group_b):
-                km.keymap_items.remove(kmi)
-                break
+    for km, kmi in _addon_keymaps:
+        km.keymap_items.remove(kmi)
 
     _addon_keymaps.clear()
 
@@ -138,22 +93,26 @@ def draw_keymaps(layout, context):
     box = layout.box()
     box.label(text="Split Shapekey Hotkeys", icon='KEYINGSET')
 
-    for km_name, space_type, region_type, group_a, group_b in _addon_keymaps:
-        km = _find_keymap(user_kc, km_name, space_type, region_type)
-        if not km:
+    for km, kmi in _addon_keymaps:
+        # Find the corresponding item in the user keyconfig for display
+        user_km = _find_keymap(user_kc, km.name, km.space_type, km.region_type)
+        if not user_km:
             continue
 
+        group_a = getattr(kmi.properties, "group_a", "")
+        group_b = getattr(kmi.properties, "group_b", "")
+
         found_item = None
-        for kmi in km.keymap_items:
-            if _is_matching_split_item(kmi, group_a, group_b):
-                found_item = kmi
+        for user_kmi in user_km.keymap_items:
+            if _is_matching_split_item(user_kmi, group_a, group_b):
+                found_item = user_kmi
                 break
 
         row = box.row()
         row.label(text=f"Split {group_a}/{group_b}")
 
         if found_item:
-            rna_keymap_ui.draw_kmi([], user_kc, km, found_item, box, 0)
+            rna_keymap_ui.draw_kmi([], user_kc, user_km, found_item, box, 0)
         else:
             row = box.row()
             row.label(text="Keymap item not found", icon='ERROR')

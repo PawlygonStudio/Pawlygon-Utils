@@ -1,0 +1,14 @@
+schema_version = "1.0.0"
+
+id = "pawlygon_utils"
+name = "Pawlygon Utils"
+version = "1.0.3"
+tagline = "Shapekey manipulation tools"
+maintainer = "Pawlygon"
+type = "add-on"
+
+blender_version_min = "5.0.0"
+
+license = ["SPDX:CC-BY-NC-SA-4.0"]
+
+tags = ["Object"]

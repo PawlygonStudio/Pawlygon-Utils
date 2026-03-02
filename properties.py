@@ -1,6 +1,6 @@
 import bpy
 from bpy.types import PropertyGroup
-from bpy.props import PointerProperty, StringProperty, IntProperty, CollectionProperty, EnumProperty
+from bpy.props import PointerProperty, StringProperty, IntProperty, CollectionProperty, EnumProperty, BoolProperty
 from bpy.utils import register_class, unregister_class
 
 from . import constants
@@ -30,10 +30,10 @@ def get_list_items(self, context):
 
 
 def on_target_changed(self, context):
-    """Clear missing shapekey list when target object is cleared."""
-    if self.pawlygon_target_object is None:
-        self.pawlygon_missing_list.clear()
-        self.pawlygon_missing_count = 0
+    """Clear missing shapekey list whenever the target object changes."""
+    self.pawlygon_missing_list.clear()
+    self.pawlygon_missing_count = 0
+    self.pawlygon_all_present = False
 
 
 def register():
@@ -61,6 +61,7 @@ def register():
     bpy.types.Scene.pawlygon_missing_count = IntProperty(default=0)
     bpy.types.Scene.pawlygon_missing_list = CollectionProperty(type=PawlygonMissingItem)
     bpy.types.Scene.pawlygon_missing_index = IntProperty(default=0)
+    bpy.types.Scene.pawlygon_all_present = BoolProperty(default=False)
 
 
 def unregister():
@@ -70,6 +71,7 @@ def unregister():
     del bpy.types.Scene.pawlygon_missing_count
     del bpy.types.Scene.pawlygon_missing_list
     del bpy.types.Scene.pawlygon_missing_index
+    del bpy.types.Scene.pawlygon_all_present
 
     global _classes
     for cls in reversed(_classes):

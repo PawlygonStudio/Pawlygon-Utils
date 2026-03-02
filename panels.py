@@ -2,7 +2,7 @@ import bpy
 from bpy.types import Panel, UIList
 from bpy.utils import register_class, unregister_class
 
-from . import constants
+from . import constants, operators
 
 # Module-level list to track registered classes for clean unregister
 _classes = []
@@ -27,22 +27,28 @@ class PU_PT_split_panel(Panel):
         layout = self.layout
         obj = context.active_object
 
-        # Validate current state for button enabling
-        is_valid = (
-            obj
-            and obj.type == 'MESH'
-            and obj.data.shape_keys
-            and obj.active_shape_key
-        )
-        is_correct_mode = obj and obj.mode in {'OBJECT', 'SCULPT'}
+        is_mesh = bool(obj and obj.type == 'MESH')
+        has_shapekeys = bool(is_mesh and obj.data.shape_keys)
+        active_key = obj.active_shape_key if has_shapekeys else None
+        is_basis = bool(active_key and active_key.name == obj.data.shape_keys.key_blocks[0].name)
+        is_valid = bool(active_key and not is_basis)
+        is_correct_mode = bool(obj and obj.mode in operators.ALLOWED_MODES)
 
-        # Show status information to user
-        if not is_correct_mode:
-            layout.label(text="Switch to Object or Sculpt mode", icon='INFO')
-        elif is_valid:
-            layout.label(text=f"Active: {obj.active_shape_key.name}")
-        else:
+        # Show status label
+        if obj is None:
             layout.label(text="Select a mesh with shapekeys", icon='INFO')
+        elif not is_mesh:
+            layout.label(text="Select a mesh with shapekeys", icon='INFO')
+        elif not is_correct_mode:
+            layout.label(text="Switch to Object or Sculpt mode", icon='INFO')
+        elif not has_shapekeys:
+            layout.label(text="Object has no shapekeys", icon='INFO')
+        elif not active_key:
+            layout.label(text="Select a mesh with shapekeys", icon='INFO')
+        elif is_basis:
+            layout.label(text="Cannot split the Basis shapekey", icon='ERROR')
+        else:
+            layout.label(text=f"Active: {active_key.name}", icon='SHAPEKEY_DATA')
 
         layout.separator()
 
@@ -72,7 +78,7 @@ class PU_PT_split_panel(Panel):
                 row.operator("pawlygon.split_shapekey", text=f"Split {group_a}/{group_b}")
 
                 # Show missing vertex groups
-                if not has_both:
+                if is_mesh and is_correct_mode and not has_both:
                     missing = []
                     if not has_a:
                         missing.append(group_a)
@@ -101,13 +107,20 @@ class PU_PT_missing_panel(Panel):
             text="Target Object"
         )
 
+        # Warn if a non-mesh object is selected as the target
+        target = scene.pawlygon_target_object
+        if target and target.type != 'MESH':
+            layout.label(text="Target must be a mesh object", icon='ERROR')
+
         # Shapekey list selector (dropdown populated from constants)
         layout.prop(context.scene, "pawlygon_list_name", text="List")
 
         layout.operator("pawlygon.check_missing", text="Check Missing")
 
-        # Show results if missing shapekeys were found
+        # Show persistent result of the last check
         missing_count = scene.pawlygon_missing_count
+        all_present = scene.pawlygon_all_present
+
         if missing_count > 0:
             layout.separator()
             layout.label(text=f"Missing: {missing_count} shapekeys", icon='ERROR')
@@ -120,7 +133,13 @@ class PU_PT_missing_panel(Panel):
                 rows=5
             )
 
-            layout.operator("pawlygon.create_missing", text="Create Missing")
+            layout.operator(
+                "pawlygon.create_missing",
+                text=f"Create Missing ({missing_count})"
+            )
+        elif all_present:
+            layout.separator()
+            layout.label(text="All shapekeys present", icon='CHECKMARK')
 
 
 class PU_PT_cleanup_panel(Panel):
@@ -141,13 +160,23 @@ class PU_PT_cleanup_panel(Panel):
             and obj.type == 'MESH'
             and obj.data.shape_keys
         )
-        is_correct_mode = bool(obj and obj.mode in {'OBJECT', 'SCULPT'})
+        is_correct_mode = bool(obj and obj.mode in operators.ALLOWED_MODES)
 
         # Show status information to user
-        if not is_correct_mode:
+        if obj is None:
+            layout.label(text="Select a mesh with shapekeys", icon='INFO')
+        elif not is_correct_mode:
             layout.label(text="Switch to Object or Sculpt mode", icon='INFO')
         elif not is_valid:
             layout.label(text="Select a mesh with shapekeys", icon='INFO')
+        else:
+            # Count .old shapekeys for context
+            key_blocks = obj.data.shape_keys.key_blocks
+            old_count = sum(1 for kb in key_blocks if kb.name.endswith('.old'))
+            if old_count > 0:
+                layout.label(text=f"{old_count} .old shapekey(s) found", icon='INFO')
+            else:
+                layout.label(text="No .old shapekeys", icon='INFO')
 
         # Cleanup operations column
         col = layout.column()

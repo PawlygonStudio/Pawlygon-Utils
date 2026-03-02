@@ -47,7 +47,7 @@ SHAPEKEY_LISTS = {
         "EyeSquint",
         "EyeSquintLeft",
         "EyeSquintRight",
-        "EyeWide", 
+        "EyeWide",
         "EyeWideLeft",
         "EyeWideRight",
         "CheekPuff",

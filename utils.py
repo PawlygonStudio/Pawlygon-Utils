@@ -1,7 +1,7 @@
 import bpy
 
 
-def split_shapekey_by_groups(obj, group_a_name, group_b_name):
+def split_shapekey_by_groups(obj: 'bpy.types.Object', group_a_name: str, group_b_name: str):
     """
     Split a shapekey into two separate shapekeys based on vertex groups.
     
@@ -34,7 +34,7 @@ def split_shapekey_by_groups(obj, group_a_name, group_b_name):
     # Store original position to maintain ordering of new shapekeys
     original_name = shape_key.name
     original_index = obj.active_shape_key_index
-    key_count = bpy.context.object.data.shape_keys.key_blocks.keys().__len__()
+    key_count = len(obj.data.shape_keys.key_blocks)
     move_steps = key_count - original_index - 1
 
     created_names = []
@@ -45,7 +45,9 @@ def split_shapekey_by_groups(obj, group_a_name, group_b_name):
         bpy.ops.object.shape_key_clear()
 
         # Select original shapekey and apply vertex group mask
-        obj.active_shape_key_index = obj.data.shape_keys.key_blocks.keys().index(original_name)
+        obj.active_shape_key_index = obj.data.shape_keys.key_blocks.find(original_name)
+        # Re-resolve reference each iteration to avoid stale pointer after shape_key_add
+        shape_key = obj.data.shape_keys.key_blocks[original_name]
         shape_key.vertex_group = group_name
         shape_key.value = 1.0
 
@@ -57,12 +59,16 @@ def split_shapekey_by_groups(obj, group_a_name, group_b_name):
 
         # Move new shapekey to maintain original position in list
         for _ in range(move_steps):
-            bpy.ops.object.shape_key_move(type='UP')
+            result = bpy.ops.object.shape_key_move(type='UP')
+            if 'FINISHED' not in result:
+                break
 
     # Reset shapekey state (clear vertex group assignment)
     bpy.ops.object.shape_key_clear()
-    current_index = obj.data.shape_keys.key_blocks.keys().index(original_name)
+    current_index = obj.data.shape_keys.key_blocks.find(original_name)
     obj.active_shape_key_index = current_index
+    # Re-resolve reference after all additions to get the current data block
+    shape_key = obj.data.shape_keys.key_blocks[original_name]
     shape_key.vertex_group = ''
     
     # Move original shapekey back to its original position if it shifted
@@ -70,18 +76,22 @@ def split_shapekey_by_groups(obj, group_a_name, group_b_name):
         if current_index < original_index:
             steps = original_index - current_index
             for _ in range(steps):
-                bpy.ops.object.shape_key_move(type='DOWN')
+                result = bpy.ops.object.shape_key_move(type='DOWN')
+                if 'FINISHED' not in result:
+                    break
         else:
             steps = current_index - original_index
             for _ in range(steps):
-                bpy.ops.object.shape_key_move(type='UP')
+                result = bpy.ops.object.shape_key_move(type='UP')
+                if 'FINISHED' not in result:
+                    break
     
     obj.active_shape_key_index = original_index
 
     return (created_names[0], created_names[1])
 
 
-def get_missing_shapekeys(obj, expected_names):
+def get_missing_shapekeys(obj: 'bpy.types.Object', expected_names: list):
     """
     Compare object's existing shapekeys against expected names.
     
@@ -100,7 +110,7 @@ def get_missing_shapekeys(obj, expected_names):
     return [name for name in expected_names if name not in existing]
 
 
-def move_old_shapekeys_to_bottom(obj):
+def move_old_shapekeys_to_bottom(obj: 'bpy.types.Object'):
     """
     Move all shapekeys ending with '.old' suffix to the bottom of the list.
     
@@ -131,15 +141,15 @@ def move_old_shapekeys_to_bottom(obj):
         
         while obj.active_shape_key_index < last_idx:
             prev_idx = obj.active_shape_key_index
-            bpy.ops.object.shape_key_move(type='DOWN')
-            if obj.active_shape_key_index == prev_idx:
+            result = bpy.ops.object.shape_key_move(type='DOWN')
+            if 'FINISHED' not in result or obj.active_shape_key_index == prev_idx:
                 break
         moved += 1
 
     return moved
 
 
-def delete_old_shapekeys(obj):
+def delete_old_shapekeys(obj: 'bpy.types.Object'):
     """
     Delete all shapekeys ending with '.old' suffix.
     
